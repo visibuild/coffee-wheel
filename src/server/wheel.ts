@@ -10,7 +10,7 @@ import {
 } from "@/lib/weights";
 import { loadActor, normEmail } from "./actor";
 import { AppError } from "./errors";
-import { lockActive, writeWeights, type PersonRow } from "./weights-store";
+import { lockActive, lockWheel, writeWeights, type PersonRow } from "./weights-store";
 import { NOT_ON_WHEEL } from "@/lib/copy";
 
 export type WheelPerson = {
@@ -112,6 +112,7 @@ export async function spin(
   rand: () => number = defaultRand,
 ): Promise<SpinResult> {
   return db.transaction(async (tx) => {
+    await lockWheel(tx);
     return spinIn(tx, actorEmail, rand);
   });
 }
@@ -121,9 +122,10 @@ export async function undoSpin(
   spinId: number,
   actorEmail: string,
 ): Promise<{ spin: SpinRow }> {
-  return db.transaction(async (tx) => ({
-    spin: await undoIn(tx, spinId, actorEmail),
-  }));
+  return db.transaction(async (tx) => {
+    await lockWheel(tx);
+    return { spin: await undoIn(tx, spinId, actorEmail) };
+  });
 }
 
 export async function undoAndRespin(
@@ -133,6 +135,7 @@ export async function undoAndRespin(
   rand: () => number = defaultRand,
 ): Promise<{ undone: SpinRow; result: SpinResult }> {
   return db.transaction(async (tx) => {
+    await lockWheel(tx);
     const actor = await requireWheelPerson(tx, actorEmail);
     const undone = await undoIn(tx, spinId, actor.email);
     return { undone, result: await spinIn(tx, actor.email, rand) };

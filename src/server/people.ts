@@ -6,7 +6,7 @@ import { addEntry, removeEntry, setShare, shareOf } from "@/lib/weights";
 import { companyEmail, requireAdmin } from "./admins";
 import { loadActor } from "./actor";
 import { AppError } from "./errors";
-import { lockActive, writeWeights } from "./weights-store";
+import { lockActive, lockWheel, writeWeights } from "./weights-store";
 
 const COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -22,8 +22,9 @@ export async function addPerson(
   input: { name: string; email: string },
 ): Promise<Person> {
   return db.transaction(async (tx) => {
-    const rows = await lockActive(tx);
     await requireAdmin(tx, actorEmail);
+    await lockWheel(tx);
+    const rows = await lockActive(tx);
     const email = companyEmail(input.email);
     const name = input.name.trim();
     if (!name) throw new AppError("INVALID", "Name is required");
@@ -63,8 +64,9 @@ export async function removePerson(
   personId: number,
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    const rows = await lockActive(tx);
     await requireAdmin(tx, actorEmail);
+    await lockWheel(tx);
+    const rows = await lockActive(tx);
     if (!rows.some((r) => r.id === personId))
       throw new AppError("NOT_FOUND", "Person not found");
     await tx
@@ -84,6 +86,7 @@ export async function updatePerson(
 ): Promise<Person> {
   return db.transaction(async (tx) => {
     await requireAdmin(tx, actorEmail);
+    await lockWheel(tx);
     const current = await getPerson(tx, personId);
     const set: { name?: string; email?: string } = {};
     if (patch.name !== undefined) {
@@ -115,8 +118,9 @@ export async function setPersonShare(
   share: number,
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    const rows = await lockActive(tx);
     const actor = await requireAdmin(tx, actorEmail);
+    await lockWheel(tx);
+    const rows = await lockActive(tx);
     if (!rows.some((r) => r.id === personId))
       throw new AppError("NOT_FOUND", "Person not found");
     const entries = rows.map((r) => ({ id: r.id, weight: r.weight }));

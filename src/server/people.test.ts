@@ -12,6 +12,7 @@ import {
   updateMyProfile,
   updatePerson,
 } from "./people";
+import { lockWheel } from "./weights-store";
 import { spin } from "./wheel";
 
 const ADMIN = "dave@visibuild.com";
@@ -215,4 +216,19 @@ describe("profile", () => {
 it("admins table is seeded", async () => {
   const rows = await db.select().from(admins);
   expect(rows.map((r) => r.email)).toContain(ADMIN);
+});
+
+describe("weight locking", () => {
+  it("restore after a spin keeps weights summing to 1", async () => {
+    await removePerson(db, ADMIN, 3);
+    await spin(db, "person1@visibuild.com", () => 0);
+    await addPerson(db, ADMIN, { name: "P3", email: "person3@visibuild.com" });
+    expect(await activeSum()).toBeCloseTo(1, 9);
+    await spin(db, "person1@visibuild.com", () => 0.99);
+    expect(await activeSum()).toBeCloseTo(1, 9);
+  });
+
+  it("lockWheel is callable on PGlite", async () => {
+    await expect(db.transaction((tx) => lockWheel(tx))).resolves.toBeUndefined();
+  });
 });
