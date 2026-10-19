@@ -7,7 +7,10 @@ export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 export const migrationsFolder = resolve(process.cwd(), "src/db/migrations");
 
-let cached: Promise<Db> | undefined;
+// Shared via globalThis so HMR / per-route bundle copies reuse one connection.
+declare global {
+  var __coffeeDb: Promise<Db> | undefined;
+}
 
 async function connect(): Promise<Db> {
   const url = process.env.DATABASE_URL;
@@ -31,9 +34,9 @@ async function connect(): Promise<Db> {
 
 /** Lazy: nothing connects until first call. */
 export async function getDb(): Promise<Db> {
-  cached ??= connect().catch((e) => {
-    cached = undefined;
+  globalThis.__coffeeDb ??= connect().catch((e) => {
+    globalThis.__coffeeDb = undefined;
     throw e;
   });
-  return cached;
+  return globalThis.__coffeeDb;
 }
