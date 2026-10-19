@@ -7,10 +7,11 @@ import {
   applyUndo,
   pickWinner,
   shareOf,
-  type WeightEntry,
 } from "@/lib/weights";
 import { loadActor, normEmail } from "./actor";
 import { AppError } from "./errors";
+import { lockActive, writeWeights, type PersonRow } from "./weights-store";
+import { NOT_ON_WHEEL } from "@/lib/copy";
 
 export type WheelPerson = {
   id: number;
@@ -31,8 +32,6 @@ export type SpinResult = {
 
 const defaultRand = () => randomInt(0, 2 ** 32) / 2 ** 32;
 
-type PersonRow = typeof people.$inferSelect;
-
 const toWheelPerson = (p: PersonRow): WheelPerson => ({
   id: p.id,
   name: p.name,
@@ -41,28 +40,6 @@ const toWheelPerson = (p: PersonRow): WheelPerson => ({
   color: p.color,
   emoji: p.emoji,
 });
-
-/** Active people ordered by id, row-locked so concurrent spins serialise. */
-function lockActive(tx: Db): Promise<PersonRow[]> {
-  return tx
-    .select()
-    .from(people)
-    .where(eq(people.active, true))
-    .orderBy(asc(people.id))
-    .for("update");
-}
-
-async function writeWeights(tx: Db, rows: PersonRow[], next: WeightEntry[]) {
-  for (const e of next) {
-    const old = rows.find((r) => r.id === e.id);
-    if (old && old.weight !== e.weight) {
-      await tx
-        .update(people)
-        .set({ weight: e.weight })
-        .where(eq(people.id, e.id));
-    }
-  }
-}
 
 export async function getWheelState(
   db: Db,
@@ -78,7 +55,7 @@ export async function getWheelState(
 async function requireWheelPerson(tx: Db, actorEmail: string) {
   const actor = await loadActor(tx, actorEmail);
   if (!actor.person)
-    throw new AppError("FORBIDDEN", "You're not on the coffee wheel");
+    throw new AppError("FORBIDDEN", NOT_ON_WHEEL);
   return actor;
 }
 
