@@ -1,11 +1,27 @@
+import { Suspense } from "react";
+import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { devLoginEnabled } from "@/auth.config";
 
-export default function SignInPage() {
+async function ErrorNotice({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
+  if (!error) return null;
+  return <p role="alert">Only Visibuild Google accounts can sign in.</p>;
+}
+
+export default function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-6 p-6 text-center">
       <h1 className="text-3xl font-semibold">☕ Coffee Wheel</h1>
       <p>Sign in with your Visibuild Google account</p>
+      <Suspense>
+        <ErrorNotice searchParams={searchParams} />
+      </Suspense>
       <form
         action={async () => {
           "use server";
@@ -21,10 +37,15 @@ export default function SignInPage() {
           className="flex flex-col gap-2"
           action={async (formData: FormData) => {
             "use server";
-            await signIn("dev", {
-              email: String(formData.get("email") ?? ""),
-              redirectTo: "/",
-            });
+            try {
+              await signIn("dev", {
+                email: String(formData.get("email") ?? ""),
+                redirectTo: "/",
+              });
+            } catch (e) {
+              if (e instanceof AuthError) redirect("/signin?error=" + e.type);
+              throw e; // includes the redirect thrown on success
+            }
           }}
         >
           <input
