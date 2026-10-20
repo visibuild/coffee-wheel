@@ -12,6 +12,8 @@ import { lockActive, lockWheel, writeWeights } from "./weights-store";
 export type EmojiInput = { kind: "native"; value: string } | { kind: "slack"; name: string };
 
 const COLOR_RE = /^#[0-9a-f]{6}$/i;
+/** UTF-16 code units; room for ZWJ sequences and flags. */
+const MAX_NATIVE_EMOJI = 16;
 
 async function getPerson(tx: Db, id: number): Promise<Person> {
   const [row] = await tx.select().from(people).where(eq(people.id, id));
@@ -182,6 +184,7 @@ export async function updateMyProfile(
       if (e === null) set.emoji = null;
       else if (e.kind === "native") {
         if (!e.value) throw new AppError("INVALID", "Emoji is required");
+        if (e.value.length > MAX_NATIVE_EMOJI) throw new AppError("INVALID", "Emoji is too long");
         set.emoji = { kind: "native", value: e.value };
       } else {
         const [cached] = await tx

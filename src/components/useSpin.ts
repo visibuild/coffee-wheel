@@ -57,7 +57,7 @@ export function useSpin() {
     timers.current.push(setTimeout(() => land(token), ms + 500));
   }
 
-  function land(token = spinToken.current) {
+  function land(token: number) {
     if (token !== spinToken.current) return;
     spinToken.current++; // land once per spin
     setPhase("result");
@@ -137,6 +137,9 @@ export function useSpin() {
       setResult(null);
       setError(null);
     },
-    onSpinEnd: () => land(),
+    // Only the spin in flight can land; a late transitionend after a backstop/undo is ignored.
+    onSpinEnd: () => {
+      if (phase === "spinning") land(spinToken.current);
+    },
   };
 }

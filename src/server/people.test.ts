@@ -194,6 +194,15 @@ describe("profile", () => {
     ).toBe("INVALID");
   });
 
+  it("rejects a native emoji over 16 UTF-16 code units, accepts a ZWJ sequence", async () => {
+    expect(
+      await code(updateMyProfile(db, ME, { emoji: { kind: "native", value: "🐙".repeat(9) } })),
+    ).toBe("INVALID");
+    const family = "👩‍👩‍👧‍👦"; // 11 code units
+    const p = await updateMyProfile(db, ME, { emoji: { kind: "native", value: family } });
+    expect(p.emoji).toEqual({ kind: "native", value: family });
+  });
+
   it("emoji null clears it", async () => {
     await updateMyProfile(db, ME, { emoji: { kind: "native", value: "🐙" } });
     const p = await updateMyProfile(db, ME, { emoji: null });

@@ -81,7 +81,7 @@ function SpinRowView({ item }: { item: SpinItem }) {
       </div>
       {undone && spin.undoneAt && (
         <p className="mt-1 pl-12 text-sm text-stone-500">
-          undone by {spin.undoneByName} · {formatDate(spin.undoneAt)}
+          undone by {spin.undoneByName} · {formatDate(spin.undoneAt)} · {formatTime(spin.undoneAt)}
         </p>
       )}
       {error && (

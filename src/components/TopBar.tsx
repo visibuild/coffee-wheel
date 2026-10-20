@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { signOut } from "@/auth";
 import { defaultColor } from "@/lib/display";
 import type { Actor } from "@/server/actor";
 import { EmojiBadge } from "./EmojiBadge";
@@ -37,6 +38,16 @@ export function TopBar({ actor }: { actor: Actor }) {
             />
             <span className="min-w-[2.5rem] max-w-[9rem] truncate sm:max-w-[14rem]">{name}</span>
           </Link>
+          <form
+            action={async () => {
+              "use server";
+              await signOut({ redirectTo: "/signin" });
+            }}
+          >
+            <button type="submit" className={navLink}>
+              Sign out
+            </button>
+          </form>
         </nav>
       </div>
     </header>
