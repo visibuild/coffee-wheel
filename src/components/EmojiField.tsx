@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
-import { Categories, type CategoryConfig } from "emoji-picker-react";
+// Type-only: a runtime import would pull the whole picker into the eager bundle.
+import type { CategoryConfig } from "emoji-picker-react";
 import type { EmojiInput } from "@/server/people";
 
 const Picker = dynamic(() => import("emoji-picker-react"), {
@@ -14,18 +15,19 @@ export type SlackEmoji = { name: string; url: string };
 
 const SLACK_GROUP = "slack";
 
-const categories: CategoryConfig[] = [
-  { category: Categories.CUSTOM, group: SLACK_GROUP, name: "Visibuild Slack" } as CategoryConfig,
-  { category: Categories.SUGGESTED, name: "Recently used" },
-  { category: Categories.SMILEYS_PEOPLE, name: "Smileys & People" },
-  { category: Categories.ANIMALS_NATURE, name: "Animals & Nature" },
-  { category: Categories.FOOD_DRINK, name: "Food & Drink" },
-  { category: Categories.TRAVEL_PLACES, name: "Travel & Places" },
-  { category: Categories.ACTIVITIES, name: "Activities" },
-  { category: Categories.OBJECTS, name: "Objects" },
-  { category: Categories.SYMBOLS, name: "Symbols" },
-  { category: Categories.FLAGS, name: "Flags" },
-];
+// Plain strings equal to the package's `Categories` enum values (see its exposedTypes.d.ts).
+const categories = [
+  { category: "custom", group: SLACK_GROUP, name: "Visibuild Slack" },
+  { category: "suggested", name: "Recently used" },
+  { category: "smileys_people", name: "Smileys & People" },
+  { category: "animals_nature", name: "Animals & Nature" },
+  { category: "food_drink", name: "Food & Drink" },
+  { category: "travel_places", name: "Travel & Places" },
+  { category: "activities", name: "Activities" },
+  { category: "objects", name: "Objects" },
+  { category: "symbols", name: "Symbols" },
+  { category: "flags", name: "Flags" },
+] as unknown as CategoryConfig[];
 
 type Props = {
   slackEmojis: SlackEmoji[];
