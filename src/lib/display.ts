@@ -55,3 +55,10 @@ const timeFormat = new Intl.DateTimeFormat("en-AU", {
 export function formatTime(d: Date): string {
   return timeFormat.format(d).replace(/\s/g, " ").toLowerCase();
 }
+
+/** Winner-card heading size: 54px, shrinking for long text so it fits two lines. */
+export function headingFontSize(text: string): number {
+  if (text.length <= 26) return 54;
+  if (text.length <= 38) return 42;
+  return 32;
+}

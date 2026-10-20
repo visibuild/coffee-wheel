@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultColor, formatDate, formatPct, formatTime, initials } from "./display";
+import { defaultColor, formatDate, formatPct, formatTime, headingFontSize, initials } from "./display";
 
 describe("initials", () => {
   it("takes the first letters of the first and last names", () => {
@@ -41,5 +41,13 @@ describe("formatTime", () => {
     // 22:41 UTC on the 19th is 9:41 am AEDT on the 20th.
     expect(formatTime(new Date("2026-10-19T22:41:00Z"))).toBe("9:41 am");
     expect(formatTime(new Date("2026-10-20T04:05:00Z"))).toBe("3:05 pm");
+  });
+});
+
+describe("headingFontSize", () => {
+  it("shrinks for long text", () => {
+    expect(headingFontSize("Kai picks the café!")).toBe(54);
+    expect(headingFontSize("Bartholomew Smythe picks the café!")).toBe(42);
+    expect(headingFontSize("x".repeat(60))).toBe(32);
   });
 });
