@@ -29,6 +29,20 @@ describe("ProfileForm", () => {
     await waitFor(() => expect(actions.updateProfileAction).toHaveBeenCalledWith({ color: "#ff0000" }));
   });
 
+  it("saves a new name, trimmed", async () => {
+    actions.updateProfileAction.mockResolvedValue({ ok: true });
+    render(<ProfileForm person={me} slackEmojis={[]} />);
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  Kai  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(actions.updateProfileAction).toHaveBeenCalledWith({ name: "Kai" }));
+  });
+
+  it("disables Save when the name is blank", () => {
+    render(<ProfileForm person={me} slackEmojis={[]} />);
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  " } });
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("clears the emoji with 'Use initials'", async () => {
     actions.updateProfileAction.mockResolvedValue({ ok: true });
     render(

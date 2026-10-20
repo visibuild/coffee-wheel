@@ -14,6 +14,14 @@ export type EmojiInput = { kind: "native"; value: string } | { kind: "slack"; na
 const COLOR_RE = /^#[0-9a-f]{6}$/i;
 /** UTF-16 code units; room for ZWJ sequences and flags. */
 const MAX_NATIVE_EMOJI = 16;
+const MAX_NAME = 40;
+
+function cleanName(raw: string): string {
+  const name = raw.trim();
+  if (!name) throw new AppError("INVALID", "Name is required");
+  if (name.length > MAX_NAME) throw new AppError("INVALID", `Name must be at most ${MAX_NAME} characters`);
+  return name;
+}
 
 async function getPerson(tx: Db, id: number): Promise<Person> {
   const [row] = await tx.select().from(people).where(eq(people.id, id));
@@ -31,8 +39,7 @@ export async function addPerson(
     await lockWheel(tx);
     const rows = await lockActive(tx);
     const email = companyEmail(input.email);
-    const name = input.name.trim();
-    if (!name) throw new AppError("INVALID", "Name is required");
+    const name = cleanName(input.name);
 
     const [existing] = await tx
       .select()
@@ -94,11 +101,7 @@ export async function updatePerson(
     await lockWheel(tx);
     const current = await getPerson(tx, personId);
     const set: { name?: string; email?: string } = {};
-    if (patch.name !== undefined) {
-      const name = patch.name.trim();
-      if (!name) throw new AppError("INVALID", "Name is required");
-      set.name = name;
-    }
+    if (patch.name !== undefined) set.name = cleanName(patch.name);
     if (patch.email !== undefined) {
       const email = companyEmail(patch.email);
       if (email !== current.email) {
@@ -168,12 +171,13 @@ export async function resetPersonStyle(
 export async function updateMyProfile(
   db: Db,
   actorEmail: string,
-  patch: { color?: string; emoji?: EmojiInput | Emoji | null },
+  patch: { name?: string; color?: string; emoji?: EmojiInput | Emoji | null },
 ): Promise<Person> {
   return db.transaction(async (tx) => {
     const { person } = await loadActor(tx, actorEmail);
     if (!person) throw new AppError("FORBIDDEN", NOT_ON_WHEEL);
-    const set: { color?: string; emoji?: Emoji | null } = {};
+    const set: { name?: string; color?: string; emoji?: Emoji | null } = {};
+    if (patch.name !== undefined) set.name = cleanName(patch.name);
     if (patch.color !== undefined) {
       if (!COLOR_RE.test(patch.color))
         throw new AppError("INVALID", "Colour must look like #aabbcc");

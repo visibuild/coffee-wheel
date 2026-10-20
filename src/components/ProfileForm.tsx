@@ -23,12 +23,15 @@ export function ProfileForm({ person, slackEmojis }: { person: Me | null; slackE
 
 function Editor({ person, slackEmojis }: { person: Me; slackEmojis: SlackEmoji[] }) {
   const initialColor = person.color ?? defaultColor(person.id);
+  const [name, setName] = useState(person.name);
   const [color, setColor] = useState(initialColor);
   const [emoji, setEmoji] = useState<Emoji | null>(person.emoji);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const trimmedName = name.trim();
+  const nameChanged = trimmedName !== person.name;
   const colorChanged = color.toLowerCase() !== initialColor.toLowerCase();
   const emojiChanged = !same(emoji, person.emoji);
 
@@ -40,7 +43,8 @@ function Editor({ person, slackEmojis }: { person: Me; slackEmojis: SlackEmoji[]
   }
 
   function save() {
-    const patch: { color?: string; emoji?: EmojiInput | null } = {};
+    const patch: { name?: string; color?: string; emoji?: EmojiInput | null } = {};
+    if (nameChanged) patch.name = trimmedName;
     if (colorChanged) patch.color = color;
     if (emojiChanged)
       patch.emoji =
@@ -63,9 +67,23 @@ function Editor({ person, slackEmojis }: { person: Me; slackEmojis: SlackEmoji[]
       }}
     >
       <div className="flex flex-wrap items-center gap-6 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-stone-200">
-        <Preview name={person.name} color={color} emoji={emoji} />
+        <Preview name={trimmedName || person.name} color={color} emoji={emoji} />
         <p className="text-sm text-stone-600">This is how you appear on the wheel.</p>
       </div>
+
+      <label className="flex flex-col gap-1.5 text-sm font-medium text-stone-700">
+        Name
+        <input
+          type="text"
+          maxLength={40}
+          className="h-11 max-w-xs rounded-xl bg-white px-3 text-base font-normal text-stone-900 ring-1 ring-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-500"
+          value={name}
+          onChange={(ev) => {
+            setName(ev.target.value);
+            setSaved(false);
+          }}
+        />
+      </label>
 
       <label className="flex flex-col gap-1.5 text-sm font-medium text-stone-700">
         Colour
@@ -83,7 +101,7 @@ function Editor({ person, slackEmojis }: { person: Me; slackEmojis: SlackEmoji[]
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium text-stone-700">Emoji</span>
         <div className="flex items-center gap-3">
-          <EmojiBadge emoji={emoji} name={person.name} color={color} size={36} />
+          <EmojiBadge emoji={emoji} name={trimmedName || person.name} color={color} size={36} />
           <button
             type="button"
             disabled={emoji === null}
@@ -102,7 +120,7 @@ function Editor({ person, slackEmojis }: { person: Me; slackEmojis: SlackEmoji[]
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={pending || (!colorChanged && !emojiChanged)}
+          disabled={pending || !trimmedName || (!nameChanged && !colorChanged && !emojiChanged)}
           className="rounded-full bg-stone-900 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-stone-700 disabled:opacity-50"
         >
           Save

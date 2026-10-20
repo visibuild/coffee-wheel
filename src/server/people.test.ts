@@ -168,6 +168,20 @@ describe("profile", () => {
     );
   });
 
+  it("renames self, trimmed", async () => {
+    const p = await updateMyProfile(db, ME, { name: "  Kai T  " });
+    expect(p.name).toBe("Kai T");
+  });
+
+  it("rejects an empty or overlong name", async () => {
+    expect(await code(updateMyProfile(db, ME, { name: "   " }))).toBe("INVALID");
+    expect(await code(updateMyProfile(db, ME, { name: "x".repeat(41) }))).toBe("INVALID");
+  });
+
+  it("can't rename without being on the wheel", async () => {
+    expect(await code(updateMyProfile(db, "stranger@visibuild.com", { name: "Me" }))).toBe("FORBIDDEN");
+  });
+
   it("sets colour", async () => {
     const p = await updateMyProfile(db, ME, { color: "#AABBCC" });
     expect(p.color).toBe("#AABBCC");

@@ -143,12 +143,14 @@ const isEmojiInput = (e: unknown): e is EmojiInput | null => {
   return (x.kind === "native" && isStr(x.value)) || (x.kind === "slack" && isStr(x.name));
 };
 
-export async function updateProfileAction(input: { color?: string; emoji?: EmojiInput | null }) {
+export async function updateProfileAction(input: { name?: string; color?: string; emoji?: EmojiInput | null }) {
   if (typeof input !== "object" || input === null) return BAD_INPUT;
+  if (input.name !== undefined && !isStr(input.name)) return BAD_INPUT;
   if (input.color !== undefined && !isStr(input.color)) return BAD_INPUT;
   if (input.emoji !== undefined && !isEmojiInput(input.emoji)) return BAD_INPUT;
   return run(async (db, actor) => {
-    const patch: { color?: string; emoji?: EmojiInput | null } = {};
+    const patch: { name?: string; color?: string; emoji?: EmojiInput | null } = {};
+    if (input.name !== undefined) patch.name = input.name;
     if (input.color !== undefined) patch.color = input.color;
     if (input.emoji !== undefined) {
       // Rebuild so extra client-supplied fields (e.g. a forged url) never reach the service.
