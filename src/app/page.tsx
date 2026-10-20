@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 import { getActorOrRedirect } from "@/auth";
 import { TopBar } from "@/components/TopBar";
 import { WheelView } from "@/components/WheelView";
@@ -16,7 +15,6 @@ export default function Home() {
 
 // Reads the session, so it streams in behind the Suspense boundary.
 async function WheelPage() {
-  await connection(); // auth() touches crypto before reading cookies
   const actor = await getActorOrRedirect();
   const { people } = await getWheelState(await getDb());
   return (

@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { getDb } from "@/db/client";
 import { loadActor, type Actor } from "@/server/actor";
 import authConfig, { isAllowedEmail } from "./auth.config";
@@ -10,6 +11,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth(authConfig);
 
 /** For server components and actions: the signed-in actor, or redirect to /signin. */
 export async function getActorOrRedirect(): Promise<Actor> {
+  await connection(); // auth() touches crypto before reading cookies, so opt out of prerender
   const session = await auth();
   const email = session?.user?.email;
   if (!isAllowedEmail(email, true) || !email) redirect("/signin");

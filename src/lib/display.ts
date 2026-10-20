@@ -43,3 +43,15 @@ export function formatDate(d: Date): string {
     dateParts.formatToParts(d).find((p) => p.type === type)?.value ?? "";
   return `${part("weekday")} ${part("day")} ${part("month")}`;
 }
+
+const timeFormat = new Intl.DateTimeFormat("en-AU", {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  timeZone: "Australia/Melbourne",
+});
+
+/** "9:41 am", in Melbourne time. */
+export function formatTime(d: Date): string {
+  return timeFormat.format(d).replace(/\s/g, " ").toLowerCase();
+}

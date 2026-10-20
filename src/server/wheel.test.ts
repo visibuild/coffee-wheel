@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Db } from "@/db/client";
-import { people, spins } from "@/db/schema";
+import { people, spins, weightChanges } from "@/db/schema";
 import { applySpin } from "@/lib/weights";
 import { makeTestDb } from "../../tests/helpers/db";
-import { getWheelState, spin, undoAndRespin, undoSpin } from "./wheel";
+import { getWheelState, listHistory, spin, undoAndRespin, undoSpin } from "./wheel";
 
 const T = 1 / 3;
 let db: Db;
@@ -159,5 +159,27 @@ describe("undoAndRespin", () => {
     ).rejects.toThrow("boom");
     const [row] = await db.select().from(spins);
     expect(row.undoneAt).toBeNull();
+  });
+});
+
+describe("listHistory", () => {
+  it("includes removed winners and resolves emails to names", async () => {
+    await spin(db, ME, () => 0); // P1 wins
+    await db.update(people).set({ active: false }).where(eq(people.id, 1));
+    await undoSpin(db, 1, "stranger@visibuild.com");
+    await db.insert(weightChanges).values({
+      personId: 2,
+      oldShare: 0.3,
+      newShare: 0.4,
+      changedBy: "person2@visibuild.com",
+    });
+    const { spins: ss, weightChanges: ws } = await listHistory(db);
+    expect(ss).toHaveLength(1);
+    expect(ss[0].winner.name).toBe("P1");
+    expect(ss[0].winner.active).toBe(false);
+    expect(ss[0].spunByName).toBe("P1");
+    expect(ss[0].undoneByName).toBe("stranger@visibuild.com");
+    expect(ws[0].person.name).toBe("P2");
+    expect(ws[0].changedByName).toBe("P2");
   });
 });

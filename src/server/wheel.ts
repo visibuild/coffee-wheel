@@ -1,7 +1,8 @@
 import { randomInt } from "node:crypto";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { people, spins, type Emoji, type SpinRow } from "@/db/schema";
+import { people, spins, weightChanges, type Emoji, type SpinRow } from "@/db/schema";
+import type { HistorySpin, HistoryWeightChange } from "@/lib/timeline";
 import {
   applySpin,
   applyUndo,
@@ -140,4 +141,38 @@ export async function undoAndRespin(
     const undone = await undoIn(tx, spinId, actor.email);
     return { undone, result: await spinIn(tx, actor.email, rand) };
   });
+}
+
+/** Every spin and weight change, newest first, including removed people. */
+export async function listHistory(
+  db: Db,
+): Promise<{ spins: HistorySpin[]; weightChanges: HistoryWeightChange[] }> {
+  const [spinRows, changeRows, everyone] = await Promise.all([
+    db
+      .select({ spin: spins, winner: people })
+      .from(spins)
+      .innerJoin(people, eq(spins.winnerId, people.id))
+      .orderBy(desc(spins.createdAt), desc(spins.id)),
+    db
+      .select({ change: weightChanges, person: people })
+      .from(weightChanges)
+      .innerJoin(people, eq(weightChanges.personId, people.id))
+      .orderBy(desc(weightChanges.createdAt), desc(weightChanges.id)),
+    db.select({ email: people.email, name: people.name }).from(people),
+  ]);
+  const names = new Map(everyone.map((p) => [normEmail(p.email), p.name]));
+  const nameOf = (email: string) => names.get(normEmail(email)) ?? email;
+  return {
+    spins: spinRows.map(({ spin, winner }) => ({
+      ...spin,
+      winner,
+      spunByName: nameOf(spin.spunBy),
+      undoneByName: spin.undoneBy ? nameOf(spin.undoneBy) : null,
+    })),
+    weightChanges: changeRows.map(({ change, person }) => ({
+      ...change,
+      person,
+      changedByName: nameOf(change.changedBy),
+    })),
+  };
 }
