@@ -84,7 +84,31 @@ describe("postSpinToSlack", () => {
     const r = await spinRow();
     expect(r.slackFileId).toBeNull();
     expect(r.slackChannel).toBeNull();
+    expect(r.slackClaimedAt).toBeNull();
     await expect(postSpinToSlack(db, c, 1, render)).resolves.toEqual({ fileId: "F1" });
+  });
+
+  it("replies in thread when the spin is undone mid-upload", async () => {
+    const c = fakeClient({
+      uploadImage: vi.fn(async () => {
+        await db.update(spins).set({ undoneAt: new Date() });
+        return { fileId: "F1" };
+      }),
+    });
+    await postSpinToSlack(db, c, 1, render);
+    expect(c.replyInThread).toHaveBeenCalledWith("C1", "123.45", "Undone — respinning");
+  });
+
+  it("retries over a stale claim", async () => {
+    await db.update(spins).set({ slackClaimedAt: new Date(Date.now() - 10 * 60_000) });
+    await expect(postSpinToSlack(db, fakeClient(), 1, render)).resolves.toEqual({ fileId: "F1" });
+  });
+
+  it("rejects while a fresh claim is in flight", async () => {
+    await db.update(spins).set({ slackClaimedAt: new Date() });
+    const c = fakeClient();
+    await expect(postSpinToSlack(db, c, 1, render)).rejects.toThrow("Posting in progress");
+    expect(c.uploadImage).not.toHaveBeenCalled();
   });
 
   it("rejects posting an undone spin", async () => {

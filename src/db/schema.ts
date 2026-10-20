@@ -46,6 +46,8 @@ export const spins = pgTable("spins", {
   slackChannel: text("slack_channel"),
   slackFileId: text("slack_file_id"),
   slackTs: text("slack_ts"),
+  // In-flight upload claim; stale after a few minutes so a crash can't wedge the spin.
+  slackClaimedAt: timestamp("slack_claimed_at", { withTimezone: true }),
 });
 
 export const weightChanges = pgTable("weight_changes", {

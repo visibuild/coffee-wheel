@@ -1,0 +1,1 @@
+ALTER TABLE "spins" ADD COLUMN "slack_claimed_at" timestamp with time zone;

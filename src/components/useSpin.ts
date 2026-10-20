@@ -94,8 +94,11 @@ export function useSpin() {
     try {
       const r = await postToSlackAction(spinId);
       if ("error" in r) {
-        setSlack(null);
-        setSlackError(r.error);
+        if (r.error === "Already posted") setSlack({ spinId, state: "posted" });
+        else {
+          setSlack(null);
+          setSlackError(r.error);
+        }
       } else setSlack({ spinId, state: "posted" });
     } catch {
       setSlack(null);

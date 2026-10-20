@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getActorOrRedirect } from "@/auth";
 import { getDb, type Db } from "@/db/client";
 import { AppError } from "@/server/errors";
@@ -48,7 +49,7 @@ export async function undoAction(spinId: number) {
   return run(async (db, email) => {
     const r = await undoSpin(db, spinId, email);
     // After the commit: Slack can never fail the undo.
-    await replyUndone(db, getSlackClient(), spinId);
+    after(() => replyUndone(db, getSlackClient(), spinId));
     return r;
   });
 }
@@ -65,7 +66,7 @@ export async function undoAndRespinAction(spinId: number) {
   if (!validSpinId(spinId)) return { error: "Spin not found" };
   return run(async (db, email) => {
     const r = await undoAndRespin(db, spinId, email);
-    await replyUndone(db, getSlackClient(), spinId);
+    after(() => replyUndone(db, getSlackClient(), spinId));
     return r;
   });
 }

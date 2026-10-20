@@ -15,6 +15,13 @@
       "when": 1792452528317,
       "tag": "0001_seed_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792456285350,
+      "tag": "0002_slack_claim",
+      "breakpoints": true
     }
   ]
 }

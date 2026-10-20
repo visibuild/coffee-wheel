@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { people, spins } from "@/db/schema";
 import { defaultColor } from "@/lib/display";
@@ -29,21 +29,25 @@ export async function postSpinToSlack(
     .where(eq(spins.id, spinId));
   if (!row) throw new AppError("NOT_FOUND", "Spin not found");
   if (row.spin.undoneAt) throw new AppError("CONFLICT", "That spin was undone");
-  if (row.spin.slackFileId || row.spin.slackChannel) throw new AppError("CONFLICT", "Already posted");
-
+  if (row.spin.slackFileId) throw new AppError("CONFLICT", "Already posted");
   const claimed = await db
     .update(spins)
-    .set({ slackChannel: channel })
+    .set({ slackClaimedAt: new Date() })
     .where(
       and(
         eq(spins.id, spinId),
         isNull(spins.slackFileId),
-        isNull(spins.slackChannel),
         isNull(spins.undoneAt),
+        or(isNull(spins.slackClaimedAt), lt(spins.slackClaimedAt, sql`now() - interval '2 minutes'`)),
       ),
     )
     .returning({ id: spins.id });
-  if (claimed.length === 0) throw new AppError("CONFLICT", "Already posted");
+  if (claimed.length === 0) {
+    const [now] = await db.select().from(spins).where(eq(spins.id, spinId));
+    if (now?.undoneAt) throw new AppError("CONFLICT", "That spin was undone");
+    if (now?.slackFileId) throw new AppError("CONFLICT", "Already posted");
+    throw new AppError("CONFLICT", "Posting in progress");
+  }
 
   try {
     const [spinner] = await db
@@ -66,15 +70,24 @@ export async function postSpinToSlack(
       filename: "coffee-winner.png",
       comment: `☕ ${userId ? `<@${userId}>` : winner.name} picks the café this week!`,
     });
-    await db.update(spins).set({ slackFileId: fileId }).where(eq(spins.id, spinId));
+    // slack_channel is only set once the card is posted.
+    const [stored] = await db
+      .update(spins)
+      .set({ slackFileId: fileId, slackChannel: channel, slackClaimedAt: null })
+      .where(eq(spins.id, spinId))
+      .returning({ undoneAt: spins.undoneAt });
+    // Undone while uploading: the earlier undo skipped its reply, so correct the thread now.
+    if (stored?.undoneAt) await replyUndone(db, client, spinId);
     return { fileId };
   } catch (e) {
-    // Release the claim so a retry can work. If the upload actually succeeded but storing
-    // the id failed, we can't know; releasing is the safer default.
-    await db
-      .update(spins)
-      .set({ slackChannel: null })
-      .where(and(eq(spins.id, spinId), isNull(spins.slackFileId)));
+    try {
+      await db
+        .update(spins)
+        .set({ slackClaimedAt: null })
+        .where(and(eq(spins.id, spinId), isNull(spins.slackFileId)));
+    } catch (releaseErr) {
+      console.error(`Slack: failed to release claim for spin ${spinId}`, releaseErr);
+    }
     throw e;
   }
 }
