@@ -10,7 +10,8 @@ vi.mock("@/app/actions", () => ({
   undoAndRespinAction: vi.fn(),
   postToSlackAction: vi.fn(),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 const spinResult: SpinResult = {
   spinId: 7,
@@ -22,7 +23,11 @@ const spinResult: SpinResult = {
   ],
 } as SpinResult;
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+  vi.useFakeTimers();
+  spinAction.mockReset();
+  refresh.mockReset();
+});
 afterEach(() => vi.useRealTimers());
 
 describe("useSpin", () => {
@@ -64,5 +69,19 @@ describe("useSpin", () => {
       vi.advanceTimersByTime(6000);
     });
     expect(result.current.phase).toBe("idle");
+  });
+
+  it("test spin never calls the server or refreshes, and lands as a test result", async () => {
+    const { result } = renderHook(() => useSpin());
+    act(() => result.current.testSpin(spinResult.people));
+    expect(result.current.phase).toBe("spinning");
+    act(() => result.current.onSpinEnd());
+    expect(result.current.phase).toBe("result");
+    expect(result.current.result?.test).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+    expect(spinAction).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
   });
 });

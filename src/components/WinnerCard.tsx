@@ -1,4 +1,5 @@
 import type { Emoji } from "@/db/schema";
+import { TEST_SPIN_BADGE } from "@/lib/copy";
 import { formatPct } from "@/lib/display";
 import { EmojiBadge } from "./EmojiBadge";
 
@@ -8,6 +9,9 @@ type Props = {
   color: string;
   chance: number;
   spunBy: string;
+  /** A client-only test spin: no Slack, no undo. */
+  test?: boolean;
+  onSpinForReal?: () => void;
   date: string;
   busy: boolean;
   error: string | null;
@@ -62,19 +66,47 @@ export function WinnerCard(p: Props) {
           </svg>
         </button>
 
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-800">
-          Coffee club · {p.date}
-        </p>
+        {p.test ? (
+          <p className="inline-block rounded-full bg-stone-800 px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] text-amber-50">
+            {TEST_SPIN_BADGE}
+          </p>
+        ) : (
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-800">
+            Coffee club · {p.date}
+          </p>
+        )}
         <div className="winner-emoji mx-auto my-3 flex h-20 items-center justify-center">
           <EmojiBadge emoji={p.emoji} name={p.name} color={p.color} size={72} />
         </div>
         <h2 className="text-2xl font-extrabold leading-tight tracking-tight text-stone-900">
-          {p.name} picks the café!
+          {p.test ? `${p.name} would pick the café` : `${p.name} picks the café!`}
         </h2>
         <p className="mt-1.5 text-sm text-amber-900/80">
-          Spun by {p.spunBy} · had a {formatPct(p.chance)} chance
+          {p.test
+            ? `${formatPct(p.chance)} chance`
+            : `Spun by ${p.spunBy} · had a ${formatPct(p.chance)} chance`}
         </p>
 
+        {p.test ? (
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={p.onClose}
+              className="flex-1 rounded-full bg-white/80 px-3 py-2 text-sm font-semibold text-stone-800 ring-1 ring-amber-900/15 transition-colors hover:bg-white"
+            >
+              Close
+            </button>
+            {p.onSpinForReal && (
+              <button
+                type="button"
+                onClick={p.onSpinForReal}
+                className="flex-1 rounded-full bg-gradient-to-b from-[#5b3a26] to-[#3a2418] px-3 py-2 text-sm font-semibold text-amber-50"
+              >
+                Spin for real
+              </button>
+            )}
+          </div>
+        ) : (
         <div className="mt-5 flex flex-col gap-2">
           <button
             type="button"
@@ -113,6 +145,7 @@ export function WinnerCard(p: Props) {
             </p>
           )}
         </div>
+        )}
       </section>
     </div>
   );

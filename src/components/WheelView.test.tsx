@@ -1,12 +1,16 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WheelPerson } from "@/server/wheel";
-import { NOT_ON_WHEEL } from "@/lib/copy";
+import { NOT_ON_WHEEL, TEST_SPIN_BADGE } from "@/lib/copy";
 import { WheelView } from "./WheelView";
 
-const { spinAction } = vi.hoisted(() => ({ spinAction: vi.fn() }));
+const { spinAction, postToSlackAction } = vi.hoisted(() => ({
+  spinAction: vi.fn(),
+  postToSlackAction: vi.fn(),
+}));
 vi.mock("@/app/actions", () => ({
   spinAction,
+  postToSlackAction,
   undoAction: vi.fn(),
   undoAndRespinAction: vi.fn(),
 }));
@@ -38,6 +42,53 @@ describe("WheelView", () => {
     render(<WheelView people={people} canSpin={false} actorName="x@visibuild.com" />);
     expect(screen.getByText(NOT_ON_WHEEL)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Spin" })).toBeNull();
+  });
+
+  it("shows Test spin (but not Spin) to non-wheel users", () => {
+    render(<WheelView people={people} canSpin={false} actorName="x@visibuild.com" />);
+    expect(screen.getByRole("button", { name: "Test spin" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Spin" })).toBeNull();
+  });
+
+  it("test spin is client-only, disables both buttons, and lands with a test card", () => {
+    vi.useFakeTimers();
+    try {
+      render(<WheelView people={people} canSpin actorName="Dave" />);
+      fireEvent.click(screen.getByRole("button", { name: "Test spin" }));
+      expect(spinAction).not.toHaveBeenCalled();
+      expect((screen.getByRole("button", { name: "Spin" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name: /Spinning/ }) as HTMLButtonElement).disabled).toBe(true);
+
+      act(() => {
+        vi.advanceTimersByTime(5500); // backstop lands it
+      });
+      expect(screen.getByText(TEST_SPIN_BADGE)).toBeTruthy();
+      expect(screen.getByRole("heading").textContent).toMatch(/would pick the café$/);
+      expect(screen.getByText(/% chance$/).textContent).not.toContain("Spun by");
+      expect(screen.queryByRole("button", { name: /Post to Slack/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: /Undo/ })).toBeNull();
+      expect(screen.getByRole("button", { name: "Spin for real" })).toBeTruthy();
+      expect(spinAction).not.toHaveBeenCalled();
+      expect(postToSlackAction).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("offers no Spin for real to non-wheel users after a test spin", () => {
+    vi.useFakeTimers();
+    try {
+      render(<WheelView people={people} canSpin={false} actorName="x@visibuild.com" />);
+      fireEvent.click(screen.getByRole("button", { name: "Test spin" }));
+      act(() => {
+        vi.advanceTimersByTime(5500);
+      });
+      expect(screen.getByText(TEST_SPIN_BADGE)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Spin for real" })).toBeNull();
+      expect(screen.getAllByRole("button", { name: "Close" }).length).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows an empty state when no one is on the wheel", () => {

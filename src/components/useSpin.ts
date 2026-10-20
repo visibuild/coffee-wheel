@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { postToSlackAction, spinAction, undoAction, undoAndRespinAction } from "@/app/actions";
+import { pickWinner } from "@/lib/weights";
 import { sliceAngles, targetRotation } from "@/lib/wheel-geometry";
 import type { SpinResult, WheelPerson } from "@/server/wheel";
 
@@ -14,7 +15,11 @@ const REDUCED_SPIN_MS = 1200;
 const SETTLE_MS = 1200;
 const FAILED = "Something went wrong. Try again.";
 
-type Landed = SpinResult & { at: Date };
+/** A test spin is client-only: it has no spin id, is never recorded and can never be posted. */
+type Landed = SpinResult & { at: Date; test: boolean };
+
+const TEST_SPIN_ID = -1;
+const cryptoRand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
 
 /** The spin state machine: idle → spinning → result. The server picks the winner; we animate to it. */
 export function useSpin() {
@@ -38,7 +43,7 @@ export function useSpin() {
   };
   useEffect(() => clearTimers, []);
 
-  function animate(r: SpinResult) {
+  function animate(r: SpinResult, test = false) {
     clearTimers();
     const angles = sliceAngles(r.people.map((p) => p.share));
     const slice = angles[r.people.findIndex((p) => p.id === r.winnerId)];
@@ -49,22 +54,22 @@ export function useSpin() {
       : SPIN_MS;
     setSpinMs(ms);
     setFrozen(r.people);
-    setResult({ ...r, at: new Date() });
+    setResult({ ...r, at: new Date(), test });
     setSlackError(null);
     setPhase("spinning");
     setRotation((current) => targetRotation(current, slice.mid, 5, jitter));
     // Backstop in case transitionend never fires (e.g. a backgrounded tab).
-    timers.current.push(setTimeout(() => land(token), ms + 500));
+    timers.current.push(setTimeout(() => land(token, test), ms + 500));
   }
 
-  function land(token: number) {
+  function land(token: number, test: boolean) {
     if (token !== spinToken.current) return;
     spinToken.current++; // land once per spin
     setPhase("result");
     timers.current.push(
       setTimeout(() => {
         setFrozen(null);
-        router.refresh();
+        if (!test) router.refresh(); // a test spin changes nothing
       }, SETTLE_MS),
     );
   }
@@ -84,10 +89,10 @@ export function useSpin() {
   }
 
   const slackState: "idle" | "posting" | "posted" =
-    slack && slack.spinId === result?.spinId ? slack.state : "idle";
+    slack && !result?.test && slack.spinId === result?.spinId ? slack.state : "idle";
 
   async function postToSlack() {
-    if (!result) return;
+    if (!result || result.test) return;
     const spinId = result.spinId;
     setSlack({ spinId, state: "posting" });
     setSlackError(null);
@@ -118,6 +123,15 @@ export function useSpin() {
     frozen,
     error,
     spin: () => call(spinAction, animate),
+    /** Picks a winner over the displayed shares; nothing is sent to the server. */
+    testSpin: (people: WheelPerson[]) => {
+      const winnerId = pickWinner(
+        people.map((p) => ({ id: p.id, weight: p.share })),
+        cryptoRand(),
+      );
+      const chance = people.find((p) => p.id === winnerId)!.share;
+      animate({ spinId: TEST_SPIN_ID, winnerId, chance, people }, true);
+    },
     undo: () =>
       result &&
       call(
@@ -139,7 +153,7 @@ export function useSpin() {
     },
     // Only the spin in flight can land; a late transitionend after a backstop/undo is ignored.
     onSpinEnd: () => {
-      if (phase === "spinning") land(spinToken.current);
+      if (phase === "spinning") land(spinToken.current, result?.test ?? false);
     },
   };
 }

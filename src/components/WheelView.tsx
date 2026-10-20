@@ -1,6 +1,6 @@
 "use client";
 
-import { NOT_ON_WHEEL } from "@/lib/copy";
+import { NOT_ON_WHEEL, TEST_SPIN_LABEL } from "@/lib/copy";
 import { defaultColor, formatDate } from "@/lib/display";
 import type { WheelPerson } from "@/server/wheel";
 import { OddsFoldout } from "./OddsFoldout";
@@ -14,6 +14,7 @@ export function WheelView({ people, canSpin, actorName }: Props) {
   const s = useSpin();
   const shown = s.frozen ?? people;
   const winner = s.result?.people.find((p) => p.id === s.result?.winnerId);
+  const disabled = s.busy || s.phase === "spinning";
   const landed = s.phase === "result" && s.result && winner;
 
   if (shown.length === 0) {
@@ -42,6 +43,15 @@ export function WheelView({ people, canSpin, actorName }: Props) {
               color={winner.color ?? defaultColor(winner.id)}
               chance={s.result!.chance}
               spunBy={actorName}
+              test={s.result!.test}
+              onSpinForReal={
+                canSpin
+                  ? () => {
+                      s.dismiss();
+                      s.spin();
+                    }
+                  : undefined
+              }
               date={formatDate(s.result!.at)}
               busy={s.busy}
               error={s.error}
@@ -56,28 +66,39 @@ export function WheelView({ people, canSpin, actorName }: Props) {
         )}
       </div>
 
-      {!canSpin ? (
-        <p className="max-w-sm rounded-2xl bg-white/70 px-5 py-3 text-center text-sm text-stone-600 ring-1 ring-stone-200">
-          {NOT_ON_WHEEL}
-        </p>
-      ) : (
-        s.phase !== "result" && (
-          <div className="flex flex-col items-center gap-2">
+      {s.phase !== "result" && (
+        <div className="flex flex-col items-center gap-3">
+          {!canSpin && (
+            <p className="max-w-sm rounded-2xl bg-white/70 px-5 py-3 text-center text-sm text-stone-600 ring-1 ring-stone-200">
+              {NOT_ON_WHEEL}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {canSpin && (
+              <button
+                type="button"
+                onClick={s.spin}
+                disabled={disabled}
+                className="spin-button rounded-full bg-gradient-to-b from-[#5b3a26] to-[#3a2418] px-14 py-4 text-xl font-extrabold tracking-wide text-amber-50 shadow-[0_10px_24px_-6px_rgba(58,36,24,0.6),inset_0_1px_0_rgba(255,255,255,0.15)] transition-[transform,opacity,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_14px_28px_-6px_rgba(58,36,24,0.65),inset_0_1px_0_rgba(255,255,255,0.15)] active:translate-y-0 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {s.phase === "spinning" && !s.result?.test ? "Spinning…" : "Spin"}
+              </button>
+            )}
             <button
               type="button"
-              onClick={s.spin}
-              disabled={s.busy || s.phase === "spinning"}
-              className="spin-button rounded-full bg-gradient-to-b from-[#5b3a26] to-[#3a2418] px-14 py-4 text-xl font-extrabold tracking-wide text-amber-50 shadow-[0_10px_24px_-6px_rgba(58,36,24,0.6),inset_0_1px_0_rgba(255,255,255,0.15)] transition-[transform,opacity,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_14px_28px_-6px_rgba(58,36,24,0.65),inset_0_1px_0_rgba(255,255,255,0.15)] active:translate-y-0 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => s.testSpin(shown)}
+              disabled={disabled}
+              className="rounded-full bg-white/80 px-6 py-3 text-sm font-semibold text-stone-700 ring-1 ring-stone-300 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {s.phase === "spinning" ? "Spinning…" : "Spin"}
+              {s.phase === "spinning" && s.result?.test ? "Spinning…" : TEST_SPIN_LABEL}
             </button>
-            {s.error && (
-              <p role="alert" className="text-sm font-medium text-red-700">
-                {s.error}
-              </p>
-            )}
           </div>
-        )
+          {s.error && (
+            <p role="alert" className="text-sm font-medium text-red-700">
+              {s.error}
+            </p>
+          )}
+        </div>
       )}
 
       <OddsFoldout people={shown} />
