@@ -67,10 +67,10 @@ In `.env.local`:
 
 1. Create a free project at [neon.tech](https://neon.tech).
 2. Copy the **pooled** connection string into `DATABASE_URL`.
-3. Run the migrations against it. `drizzle-kit` may not read `.env.local`, so pass the URL explicitly:
+3. Run the migrations against it. `drizzle-kit` does not load `.env.local`, so pass `DATABASE_URL` explicitly:
 
    ```bash
-   DATABASE_URL='postgres://…' npm run db:migrate
+   DATABASE_URL='postgres://USER:PASSWORD@HOST/DBNAME?sslmode=require' npm run db:migrate
    ```
 
 The seed migration makes `dave@visibuild.com` the first admin; he can add other admins in the app.
@@ -87,7 +87,6 @@ The seed migration makes `dave@visibuild.com` the first admin; he can add other 
    | `DATABASE_URL` | Neon pooled connection string |
    | `SLACK_BOT_TOKEN` / `SLACK_CHANNEL_ID` | from Slack |
    | `CRON_SECRET` | any long random string |
-   | `APP_URL` | `https://<app>.vercel.app` |
 
    Do **not** set `AUTH_DEV_LOGIN` in Vercel.
 3. Deploy.
@@ -100,7 +99,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/slack-emoji
 
 ## Custom domain (optional)
 
-After adding a domain in Vercel, add its origin (`https://coffee.example.com`) to the Google client's JavaScript origins and `https://coffee.example.com/api/auth/callback/google` to its redirect URIs, and update `APP_URL`.
+After adding a domain in Vercel, add its origin (`https://coffee.example.com`) to the Google client's JavaScript origins and `https://coffee.example.com/api/auth/callback/google` to its redirect URIs.
 
 ## Hosting notes
 
