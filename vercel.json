@@ -1,0 +1,1 @@
+{ "crons": [{ "path": "/api/cron/slack-emoji", "schedule": "0 19 * * *" }] }
