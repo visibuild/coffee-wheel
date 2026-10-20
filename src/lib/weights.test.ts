@@ -13,27 +13,56 @@ const eq = (n: number) => Array.from({ length: n }, (_, i) => ({ id: i + 1, weig
 const sum = (r: { weight: number }[]) => r.reduce((s, e) => s + e.weight, 0);
 
 describe("weights", () => {
-  test("applySpin halves winner relative to others", () => {
-    const r = applySpin(eq(4), 1); // weights 0.5,1,1,1 → /3.5
-    expect(shareOf(r, 1)).toBeCloseTo(0.5 / 3.5, 10);
-    expect(shareOf(r, 2)).toBeCloseTo(1 / 3.5, 10);
+  test("applySpin halves the winner's share", () => {
+    const r = applySpin(
+      [
+        { id: 1, weight: 0.8 },
+        { id: 2, weight: 0.2 },
+      ],
+      1,
+    );
+    expect(shareOf(r, 1)).toBeCloseTo(0.4, 10);
+    expect(shareOf(r, 2)).toBeCloseTo(0.6, 10);
+    const q = applySpin(eq(4), 1);
+    expect(shareOf(q, 1)).toBeCloseTo(0.125, 10);
+    expect(shareOf(q, 2)).toBeCloseTo(0.875 / 3, 10);
+    expect(sum(q)).toBeCloseTo(1, 10);
   });
-  test("everyone picked once returns to equal", () => {
-    let r = eq(3);
-    for (const id of [1, 2, 3]) r = applySpin(r, id);
-    r.forEach((e) => expect(e.weight).toBeCloseTo(1 / 3, 10));
+  test.each([3, 25])("everyone picked once keeps %i people within a factor of 2", (n) => {
+    let r = eq(n);
+    for (let id = 1; id <= n; id++) r = applySpin(r, id);
+    const ws = r.map((e) => e.weight);
+    expect(Math.max(...ws) / Math.min(...ws)).toBeLessThan(2);
+    expect(sum(r)).toBeCloseTo(1, 10);
   });
   test("undo reverses spin exactly", () => {
-    const r = applyUndo(applySpin(eq(5), 2), 2);
-    r.forEach((e) => expect(e.weight).toBeCloseTo(0.2, 10));
+    const cases = [eq(5), [0.5, 0.3, 0.2].map((weight, i) => ({ id: i + 1, weight }))];
+    for (const x of cases) {
+      for (const { id } of x) {
+        const r = applyUndo(applySpin(x, id), id);
+        r.forEach((e, i) => expect(e.weight).toBeCloseTo(x[i].weight, 10));
+      }
+    }
   });
-  test("undo of older spin keeps later spins", () => {
-    const r = applyUndo(applySpin(applySpin(eq(3), 1), 2), 1);
-    expect(r).toEqual(
-      expect.arrayContaining(
-        applySpin(eq(3), 2).map((e) => ({ id: e.id, weight: expect.closeTo(e.weight, 10) })),
-      ),
-    );
+  test("undo of an older spin is approximate but valid", () => {
+    const after = applySpin(applySpin(eq(3), 1), 2);
+    const r = applyUndo(after, 1);
+    r.forEach((e) => {
+      expect(Number.isFinite(e.weight)).toBe(true);
+      expect(e.weight).toBeGreaterThan(0);
+    });
+    expect(sum(r)).toBeCloseTo(1, 10);
+    expect(shareOf(r, 1)).toBeGreaterThan(shareOf(after, 1));
+  });
+  test("undo falls back when doubling would exceed 1", () => {
+    const x = [
+      { id: 1, weight: 0.6 },
+      { id: 2, weight: 0.4 },
+    ];
+    const r = applyUndo(x, 1);
+    expect(sum(r)).toBeCloseTo(1, 10);
+    r.forEach((e) => expect(e.weight).toBeGreaterThan(0));
+    expect(shareOf(r, 1)).toBeGreaterThan(0.6);
   });
   test("undo with absent winner is a no-op", () => {
     const r = applyUndo(eq(3), 99);
@@ -58,7 +87,7 @@ describe("weights", () => {
   test("setShare sets target and scales others proportionally", () => {
     const r = setShare(applySpin(eq(3), 1), 3, 0.5);
     expect(shareOf(r, 3)).toBeCloseTo(0.5, 10);
-    expect(shareOf(r, 2) / shareOf(r, 1)).toBeCloseTo(2, 10);
+    expect(shareOf(r, 2) / shareOf(r, 1)).toBeCloseTo(2.5, 10);
     expect(sum(r)).toBeCloseTo(1, 10);
   });
   test("setShare rejects 0 and 1 when n>1", () => {

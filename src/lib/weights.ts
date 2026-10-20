@@ -12,12 +12,28 @@ function scaleWinner(entries: WeightEntry[], winnerId: number, factor: number): 
   );
 }
 
-export function applySpin(entries: WeightEntry[], winnerId: number): WeightEntry[] {
-  return scaleWinner(entries, winnerId, 0.5);
+// Moves the winner's share to `target` and scales everyone else proportionally to fill the rest.
+function retarget(entries: WeightEntry[], winnerId: number, current: number, target: number) {
+  const k = (1 - target) / (1 - current);
+  return entries.map((e) => ({ id: e.id, weight: e.id === winnerId ? target : e.weight * k }));
 }
 
+// Spin halves the winner's share (80% -> 40%); everyone else scales up to fill the rest.
+export function applySpin(entries: WeightEntry[], winnerId: number): WeightEntry[] {
+  const norm = normalize(entries);
+  const s = shareOf(norm, winnerId);
+  if (norm.length <= 1 || s === 0) return norm;
+  return retarget(norm, winnerId, s, s / 2);
+}
+
+// Undo doubles the winner's share back (exact for the most recent spin). If doubling would
+// reach 100% (an old spin on a small wheel), fall back to doubling the relative weight.
 export function applyUndo(entries: WeightEntry[], winnerId: number): WeightEntry[] {
-  return scaleWinner(entries, winnerId, 2);
+  const norm = normalize(entries);
+  const t = shareOf(norm, winnerId);
+  if (norm.length <= 1 || t === 0) return norm;
+  if (2 * t >= 1) return scaleWinner(norm, winnerId, 2);
+  return retarget(norm, winnerId, t, 2 * t);
 }
 
 export function addEntry(entries: WeightEntry[], newId: number): WeightEntry[] {

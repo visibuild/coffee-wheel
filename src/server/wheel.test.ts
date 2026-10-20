@@ -54,7 +54,9 @@ describe("spin", () => {
     expect(r.chance).toBeCloseTo(T, 9);
     expect(r.people.find((p) => p.id === 1)!.share).toBeCloseTo(T, 9);
     const w = await weights();
-    expect(w[0].weight).toBeCloseTo(0.5 / 2.5, 9);
+    expect(w[0].weight).toBeCloseTo(1 / 6, 9);
+    expect(w[1].weight).toBeCloseTo(5 / 12, 9);
+    expect(w[2].weight).toBeCloseTo(5 / 12, 9);
     const [row] = await db.select().from(spins);
     expect(row.spunBy).toBe(ME);
     expect(row.chance).toBeCloseTo(T, 9);
@@ -82,8 +84,13 @@ describe("spin", () => {
 
   it("concurrent spins both apply", async () => {
     await Promise.all([spin(db, ME, () => 0), spin(db, ME, () => 0.99)]);
-    expect(await db.select().from(spins)).toHaveLength(2);
-    expectWeights(await weights(), applySpin(applySpin(eq3, 1), 3));
+    const rows = await db.select().from(spins).orderBy(spins.id);
+    expect(rows).toHaveLength(2);
+    // Share-halving spins don't commute, so replay them in recorded (spin id) order.
+    const expected = rows.reduce((w, r) => applySpin(w, r.winnerId), eq3);
+    const actual = await weights();
+    expectWeights(actual, expected);
+    expect(actual.reduce((t, w) => t + w.weight, 0)).toBeCloseTo(1, 9);
   });
 });
 
