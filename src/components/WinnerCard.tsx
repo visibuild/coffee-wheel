@@ -11,6 +11,9 @@ type Props = {
   date: string;
   busy: boolean;
   error: string | null;
+  slackState: "idle" | "posting" | "posted";
+  slackError: string | null;
+  onPostToSlack: () => void;
   onUndo: () => void;
   onUndoAndRespin: () => void;
   onClose: () => void;
@@ -75,12 +78,17 @@ export function WinnerCard(p: Props) {
         <div className="mt-5 flex flex-col gap-2">
           <button
             type="button"
-            disabled
-            title="Coming soon"
+            onClick={p.onPostToSlack}
+            disabled={p.slackState !== "idle"}
             className="rounded-full bg-[#4a154b] px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-45"
           >
-            Post to Slack
+            {p.slackState === "posting" ? "Posting…" : p.slackState === "posted" ? "Posted ✓" : "Post to Slack"}
           </button>
+          {p.slackError && (
+            <p role="alert" className="text-sm font-medium text-red-700">
+              {p.slackError}
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { spinAction, undoAction, undoAndRespinAction } from "@/app/actions";
+import { postToSlackAction, spinAction, undoAction, undoAndRespinAction } from "@/app/actions";
 import { sliceAngles, targetRotation } from "@/lib/wheel-geometry";
 import type { SpinResult, WheelPerson } from "@/server/wheel";
 
@@ -27,6 +27,8 @@ export function useSpin() {
   const [frozen, setFrozen] = useState<WheelPerson[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [spinMs, setSpinMs] = useState(SPIN_MS);
+  const [slack, setSlack] = useState<{ spinId: number; state: "posting" | "posted" } | null>(null);
+  const [slackError, setSlackError] = useState<string | null>(null);
   const spinToken = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -48,6 +50,7 @@ export function useSpin() {
     setSpinMs(ms);
     setFrozen(r.people);
     setResult({ ...r, at: new Date() });
+    setSlackError(null);
     setPhase("spinning");
     setRotation((current) => targetRotation(current, slice.mid, 5, jitter));
     // Backstop in case transitionend never fires (e.g. a backgrounded tab).
@@ -80,7 +83,30 @@ export function useSpin() {
     }
   }
 
+  const slackState: "idle" | "posting" | "posted" =
+    slack && slack.spinId === result?.spinId ? slack.state : "idle";
+
+  async function postToSlack() {
+    if (!result) return;
+    const spinId = result.spinId;
+    setSlack({ spinId, state: "posting" });
+    setSlackError(null);
+    try {
+      const r = await postToSlackAction(spinId);
+      if ("error" in r) {
+        setSlack(null);
+        setSlackError(r.error);
+      } else setSlack({ spinId, state: "posted" });
+    } catch {
+      setSlack(null);
+      setSlackError(FAILED);
+    }
+  }
+
   return {
+    slackState: slackState,
+    slackError,
+    postToSlack,
     phase,
     busy,
     rotation,

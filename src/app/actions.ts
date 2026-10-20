@@ -14,6 +14,8 @@ import {
   updateMyProfile,
   updatePerson,
 } from "@/server/people";
+import { getSlackClient } from "@/server/slack-client";
+import { postSpinToSlack, replyUndone } from "@/server/slack-post";
 import { spin, undoAndRespin, undoSpin, type SpinResult } from "@/server/wheel";
 
 type ActionResult<T> = T | { error: string };
@@ -43,12 +45,29 @@ export async function spinAction(): Promise<ActionResult<SpinResult>> {
 
 export async function undoAction(spinId: number) {
   if (!validSpinId(spinId)) return { error: "Spin not found" };
-  return run((db, email) => undoSpin(db, spinId, email));
+  return run(async (db, email) => {
+    const r = await undoSpin(db, spinId, email);
+    // After the commit: Slack can never fail the undo.
+    await replyUndone(db, getSlackClient(), spinId);
+    return r;
+  });
+}
+
+export async function postToSlackAction(spinId: number) {
+  if (!validSpinId(spinId)) return { error: "Spin not found" };
+  return run(async (db) => {
+    await postSpinToSlack(db, getSlackClient(), spinId);
+    return OK;
+  });
 }
 
 export async function undoAndRespinAction(spinId: number) {
   if (!validSpinId(spinId)) return { error: "Spin not found" };
-  return run((db, email) => undoAndRespin(db, spinId, email));
+  return run(async (db, email) => {
+    const r = await undoAndRespin(db, spinId, email);
+    await replyUndone(db, getSlackClient(), spinId);
+    return r;
+  });
 }
 
 const isId = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v > 0;

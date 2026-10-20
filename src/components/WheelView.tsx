@@ -45,6 +45,9 @@ export function WheelView({ people, canSpin, actorName }: Props) {
               date={formatDate(s.result!.at)}
               busy={s.busy}
               error={s.error}
+              slackState={s.slackState}
+              slackError={s.slackError}
+              onPostToSlack={s.postToSlack}
               onUndo={s.undo}
               onUndoAndRespin={s.undoAndRespin}
               onClose={s.dismiss}
