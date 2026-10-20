@@ -1,8 +1,6 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import { defaultColor, formatPct } from "@/lib/display";
-import { polar, sliceAngles, slicePath } from "@/lib/wheel-geometry";
+import { polar, round3, sliceAngles, slicePath } from "@/lib/wheel-geometry";
 import type { WheelPerson } from "@/server/wheel";
 import { EmojiBadge, SvgEmojiBadge } from "./EmojiBadge";
 
@@ -93,7 +91,7 @@ export function Wheel({ people, rotation, spinMs, highlightId, onSpinEnd }: Prop
               const fill = p.color ?? defaultColor(p.id);
               const dimmed = highlightId != null && highlightId !== p.id;
               const span = a.end - a.start;
-              const size = Math.min(88, R * 0.3, ((2 * Math.PI * BADGE_R * span) / 360) * 0.72);
+              const size = round3(Math.min(88, R * 0.3, ((2 * Math.PI * BADGE_R * span) / 360) * 0.72));
               const show = (e: { clientX: number; clientY: number }) => showTip(e, p.id);
               return (
                 <g
@@ -116,7 +114,7 @@ export function Wheel({ people, rotation, spinMs, highlightId, onSpinEnd }: Prop
                     />
                   )}
                   {size >= 18 && (
-                    <g transform={`rotate(${a.mid} ${C} ${C}) translate(${C} ${C - BADGE_R})`}>
+                    <g transform={`rotate(${round3(a.mid)} ${C} ${C}) translate(${C} ${C - BADGE_R})`}>
                       <SvgEmojiBadge emoji={p.emoji} name={p.name} color={fill} size={size} />
                     </g>
                   )}

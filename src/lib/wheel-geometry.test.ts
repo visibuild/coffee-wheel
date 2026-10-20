@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sliceAngles, targetRotation } from "./wheel-geometry";
+import { polar, sliceAngles, slicePath, targetRotation } from "./wheel-geometry";
 
 describe("sliceAngles", () => {
   it("lays slices clockwise from 12 o'clock", () => {
@@ -27,5 +27,22 @@ describe("targetRotation", () => {
     expect(r).toBeGreaterThanOrEqual(100 + 3 * 360);
     expect(r).toBeLessThan(100 + 4 * 360);
     expect((r + 45 + 10) % 360).toBeCloseTo(0);
+  });
+});
+
+describe("polar and slicePath rounding", () => {
+  const decimals = (n: number) => (String(n).split(".")[1] ?? "").length;
+
+  it("rounds polar coordinates to 3 decimals", () => {
+    const p = polar(500, 500, 462, 37.123456);
+    expect(decimals(p.x)).toBeLessThanOrEqual(3);
+    expect(decimals(p.y)).toBeLessThanOrEqual(3);
+  });
+
+  it("emits path coordinates with at most 3 decimals", () => {
+    const d = slicePath(500, 500, 462, 13.3333333, 77.7777777);
+    const nums = d.match(/-?\d+(\.\d+)?/g)!;
+    expect(nums.length).toBeGreaterThan(0);
+    for (const n of nums) expect((n.split(".")[1] ?? "").length).toBeLessThanOrEqual(3);
   });
 });
