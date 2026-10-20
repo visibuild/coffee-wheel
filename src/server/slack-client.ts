@@ -17,7 +17,9 @@ type Share = { ts?: string }[];
 type Shares = Record<string, Share>;
 
 function createSlackClient(token: string): SlackClient {
-  const web = new WebClient(token);
+  // Bound the worst case (3 attempts x 15s + backoff, per Slack call) well below the 2-minute
+  // stale-claim window in slack-post.ts, so a hung upload can't be re-claimed and double-posted.
+  const web = new WebClient(token, { retryConfig: { retries: 2 }, timeout: 15_000 });
   return {
     async listEmoji() {
       const res = await web.emoji.list();

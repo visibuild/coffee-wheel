@@ -29,7 +29,10 @@ async function connect(): Promise<Db> {
   if (typeof WebSocket === "undefined") {
     neonConfig.webSocketConstructor = (await import("ws")).default;
   }
-  return drizzle(new Pool({ connectionString: url }), { schema });
+  const pool = new Pool({ connectionString: url });
+  // A dropped idle WebSocket emits 'error'; unhandled, it would crash the instance.
+  pool.on("error", (e: Error) => console.error("db pool error", e));
+  return drizzle(pool, { schema });
 }
 
 /** Lazy: nothing connects until first call. */
