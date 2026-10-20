@@ -6,6 +6,7 @@ import { NOT_ON_WHEEL } from "@/lib/copy";
 import { makeTestDb } from "../../tests/helpers/db";
 import {
   addPerson,
+  listSlackEmojis,
   removePerson,
   resetPersonStyle,
   setPersonShare,
@@ -230,5 +231,18 @@ describe("weight locking", () => {
 
   it("lockWheel is callable on PGlite", async () => {
     await expect(db.transaction((tx) => lockWheel(tx))).resolves.toBeUndefined();
+  });
+});
+
+describe("listSlackEmojis", () => {
+  it("returns cached emojis ordered by name", async () => {
+    await db.insert(slackEmojis).values([
+      { name: "wave", url: "https://cache/wave.png" },
+      { name: "party", url: "https://cache/party.gif" },
+    ]);
+    expect(await listSlackEmojis(db)).toEqual([
+      { name: "party", url: "https://cache/party.gif" },
+      { name: "wave", url: "https://cache/wave.png" },
+    ]);
   });
 });

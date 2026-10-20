@@ -7,9 +7,11 @@ import { AppError } from "@/server/errors";
 import { addAdmin, removeAdmin } from "@/server/admins";
 import {
   addPerson,
+  type EmojiInput,
   removePerson,
   resetPersonStyle,
   setPersonShare,
+  updateMyProfile,
   updatePerson,
 } from "@/server/people";
 import { spin, undoAndRespin, undoSpin, type SpinResult } from "@/server/wheel";
@@ -23,6 +25,7 @@ async function run<T>(fn: (db: Db, actorEmail: string) => Promise<T>): Promise<A
     revalidatePath("/");
     revalidatePath("/history");
     revalidatePath("/admin");
+    revalidatePath("/profile");
     return result;
   } catch (e) {
     if (e instanceof AppError) return { error: e.message };
@@ -109,6 +112,34 @@ export async function removeAdminAction(email: string) {
   if (!isStr(email)) return BAD_INPUT;
   return run(async (db, actor) => {
     await removeAdmin(db, actor, email);
+    return OK;
+  });
+}
+
+const isEmojiInput = (e: unknown): e is EmojiInput | null => {
+  if (e === null) return true;
+  if (typeof e !== "object") return false;
+  const x = e as Record<string, unknown>;
+  return (x.kind === "native" && isStr(x.value)) || (x.kind === "slack" && isStr(x.name));
+};
+
+export async function updateProfileAction(input: { color?: string; emoji?: EmojiInput | null }) {
+  if (typeof input !== "object" || input === null) return BAD_INPUT;
+  if (input.color !== undefined && !isStr(input.color)) return BAD_INPUT;
+  if (input.emoji !== undefined && !isEmojiInput(input.emoji)) return BAD_INPUT;
+  return run(async (db, actor) => {
+    const patch: { color?: string; emoji?: EmojiInput | null } = {};
+    if (input.color !== undefined) patch.color = input.color;
+    if (input.emoji !== undefined) {
+      // Rebuild so extra client-supplied fields (e.g. a forged url) never reach the service.
+      patch.emoji =
+        input.emoji === null
+          ? null
+          : input.emoji.kind === "native"
+            ? { kind: "native", value: input.emoji.value }
+            : { kind: "slack", name: input.emoji.name };
+    }
+    await updateMyProfile(db, actor, patch);
     return OK;
   });
 }

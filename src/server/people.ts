@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { people, slackEmojis, weightChanges, type Emoji, type Person } from "@/db/schema";
 import { NOT_ON_WHEEL } from "@/lib/copy";
@@ -7,6 +7,9 @@ import { companyEmail, requireAdmin } from "./admins";
 import { loadActor } from "./actor";
 import { AppError } from "./errors";
 import { lockActive, lockWheel, writeWeights } from "./weights-store";
+
+/** What the profile form sends: for Slack emojis the server looks the url up. */
+export type EmojiInput = { kind: "native"; value: string } | { kind: "slack"; name: string };
 
 const COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -163,7 +166,7 @@ export async function resetPersonStyle(
 export async function updateMyProfile(
   db: Db,
   actorEmail: string,
-  patch: { color?: string; emoji?: Emoji | null },
+  patch: { color?: string; emoji?: EmojiInput | Emoji | null },
 ): Promise<Person> {
   return db.transaction(async (tx) => {
     const { person } = await loadActor(tx, actorEmail);
@@ -193,4 +196,11 @@ export async function updateMyProfile(
       await tx.update(people).set(set).where(eq(people.id, person.id));
     return getPerson(tx, person.id);
   });
+}
+
+export async function listSlackEmojis(db: Db): Promise<{ name: string; url: string }[]> {
+  return db
+    .select({ name: slackEmojis.name, url: slackEmojis.url })
+    .from(slackEmojis)
+    .orderBy(asc(slackEmojis.name));
 }
