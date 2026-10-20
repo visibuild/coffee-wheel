@@ -10,7 +10,7 @@ describe("proxy matcher", () => {
     "protects %s",
     (p) => expect(protectedBy(p)).toBe(true),
   );
-  it.each(["/api/auth/session", "/api/auth/callback/google", "/api/cron/slack-emoji", "/signin", "/_next/static/a.js", "/favicon.ico", "/logo.svg"])(
+  it.each(["/api/auth/session", "/api/auth/callback/google", "/api/cron/slack-emoji", "/signin", "/_next/static/a.js", "/favicon.ico", "/logo.svg", "/icon.svg"])(
     "does not protect %s",
     (p) => expect(protectedBy(p)).toBe(false),
   );
